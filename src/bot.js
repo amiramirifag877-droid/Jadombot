@@ -15,14 +15,23 @@ import {
   clearSession
 } from "./db.js";
 
-import { makePoster, cleanupDir } from "./image.js";
-import { buildCaption, saveEmojiSample } from "./style.js";
+import {
+  makePoster,
+  cleanupDir
+} from "./image.js";
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+import {
+  buildCaption,
+  saveEmojiSample
+} from "./style.js";
+
+const bot = new Telegraf(
+  process.env.BOT_TOKEN
+);
 
 /*
 |--------------------------------------------------------------------------
-| مراحل ساخت محتوا
+| مراحل
 |--------------------------------------------------------------------------
 */
 
@@ -36,12 +45,12 @@ const steps = [
   ["genre", "۶/۱۰ — ژانر را بفرست."],
   ["summary", "۷/۱۰ — خلاصه داستان را بفرست."],
   ["linkMode", "۸/۱۰ — نوع لینک‌ها را انتخاب کن."],
-  ["links", "۹/۱۰ — لینک دانلود را وارد کن."]
+  ["links", "۹/۱۰ — لینک دانلود را بفرست."]
 ];
 
 /*
 |--------------------------------------------------------------------------
-| بررسی ادمین
+| Admin
 |--------------------------------------------------------------------------
 */
 
@@ -60,7 +69,7 @@ function adminOnly(handler) {
 
 /*
 |--------------------------------------------------------------------------
-| ارسال مرحله
+| Step
 |--------------------------------------------------------------------------
 */
 
@@ -92,17 +101,18 @@ async function sendStep(ctx, step) {
   }
 
   const [, prompt] = steps[step];
+
   await ctx.reply(prompt);
 }
 
 /*
 |--------------------------------------------------------------------------
-| START
+| Start
 |--------------------------------------------------------------------------
 */
 
 bot.start(
-  async (ctx) => {
+  async ctx => {
     if (!(await isAdmin(ctx.from.id))) {
       return ctx.reply(
         "شما ادمین نیستید برای دسترسی با مدیریت در ارتباط باشید"
@@ -122,34 +132,38 @@ bot.start(
 
 /*
 |--------------------------------------------------------------------------
-| HELP
+| Help
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "help",
-  adminOnly(async (ctx) => {
+  adminOnly(async ctx => {
     await ctx.reply(
       "دستورات:\n\n" +
       "/setup تنظیم لوگو، آیدی کانال و نمونه استایل\n" +
       "/new شروع ساخت محتوای جدید\n" +
       "/cancel لغو ساخت محتوا\n" +
       "/admin مدیریت ادمین‌ها\n" +
-      "/settarget تنظیم گروه/کانال فعلی به عنوان مقصد انتشار"
+      "/settarget تنظیم مقصد انتشار"
     );
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| SETUP
+| Setup
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "setup",
-  adminOnly(async (ctx) => {
-    await setSession(ctx.from.id, 100, {});
+  adminOnly(async ctx => {
+    await setSession(
+      ctx.from.id,
+      100,
+      {}
+    );
 
     await ctx.reply(
       "تنظیم اولیه شروع شد.\n\n" +
@@ -162,51 +176,57 @@ bot.command(
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN
+| Admin
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "admin",
-  adminOnly(async (ctx) => {
+  adminOnly(async ctx => {
     const admins = await listAdmins();
-    const target = await getSetting(
-      "target_chat_id",
-      null
-    );
-    const channel = await getSetting(
-      "channel_id",
-      null
-    );
+
+    const target =
+      await getSetting(
+        "target_chat_id",
+        null
+      );
+
+    const channel =
+      await getSetting(
+        "channel_id",
+        null
+      );
 
     await ctx.reply(
       `مدیریت ربات\n\n` +
       `ادمین‌ها: ${admins
-        .map((x) => x.user_id)
+        .map(x => x.user_id)
         .join(", ")}\n` +
       `کانال: ${channel || "تنظیم نشده"}\n` +
       `مقصد انتشار: ${target || "تنظیم نشده"}\n\n` +
-      "برای افزودن:\n" +
-      "/addadmin USER_ID\n\n" +
-      "برای حذف:\n" +
-      "/deladmin USER_ID\n\n" +
-      "برای تنظیم مقصد، ربات را به گروه/کانال اضافه کن و همان‌جا /settarget بزن."
+      "برای افزودن:\n/addadmin USER_ID\n\n" +
+      "برای حذف:\n/deladmin USER_ID"
     );
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| ADD ADMIN
+| Add Admin
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "addadmin",
-  adminOnly(async (ctx) => {
-    const id = ctx.message.text.split(/\s+/)[1];
+  adminOnly(async ctx => {
+    const id =
+      ctx.message.text
+        .split(/\s+/)[1];
 
-    if (!id || !/^\d+$/.test(id)) {
+    if (
+      !id ||
+      !/^\d+$/.test(id)
+    ) {
       return ctx.reply(
         "فرمت صحیح:\n/addadmin 123456789"
       );
@@ -214,28 +234,36 @@ bot.command(
 
     await addAdmin(id);
 
-    await ctx.reply("ادمین اضافه شد. ✅");
+    await ctx.reply(
+      "ادمین اضافه شد. ✅"
+    );
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| DELETE ADMIN
+| Delete Admin
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "deladmin",
-  adminOnly(async (ctx) => {
-    const id = ctx.message.text.split(/\s+/)[1];
+  adminOnly(async ctx => {
+    const id =
+      ctx.message.text
+        .split(/\s+/)[1];
 
-    if (!id || !/^\d+$/.test(id)) {
+    if (
+      !id ||
+      !/^\d+$/.test(id)
+    ) {
       return ctx.reply(
         "فرمت صحیح:\n/deladmin 123456789"
       );
     }
 
-    const ok = await removeAdmin(id);
+    const ok =
+      await removeAdmin(id);
 
     await ctx.reply(
       ok
@@ -247,13 +275,13 @@ bot.command(
 
 /*
 |--------------------------------------------------------------------------
-| SET TARGET
+| Set Target
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "settarget",
-  adminOnly(async (ctx) => {
+  adminOnly(async ctx => {
     await setSetting(
       "target_chat_id",
       String(ctx.chat.id)
@@ -267,14 +295,16 @@ bot.command(
 
 /*
 |--------------------------------------------------------------------------
-| CANCEL
+| Cancel
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "cancel",
-  adminOnly(async (ctx) => {
-    await clearSession(ctx.from.id);
+  adminOnly(async ctx => {
+    await clearSession(
+      ctx.from.id
+    );
 
     await ctx.reply(
       "فرآیند لغو شد."
@@ -284,13 +314,13 @@ bot.command(
 
 /*
 |--------------------------------------------------------------------------
-| NEW
+| New
 |--------------------------------------------------------------------------
 */
 
 bot.command(
   "new",
-  adminOnly(async (ctx) => {
+  adminOnly(async ctx => {
     await setSession(
       ctx.from.id,
       0,
@@ -301,39 +331,46 @@ bot.command(
       "ساخت محتوای جدید شروع شد. 🎬"
     );
 
-    await sendStep(ctx, 0);
+    await sendStep(
+      ctx,
+      0
+    );
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| دریافت عکس / پوستر / لوگو
+| عکس
 |--------------------------------------------------------------------------
 */
 
 bot.on(
   ["photo", "document"],
-  adminOnly(async (ctx) => {
-    const session = await getSession(
-      ctx.from.id
-    );
+  adminOnly(async ctx => {
+    const session =
+      await getSession(
+        ctx.from.id
+      );
 
     /*
     |--------------------------------------------------------------------------
-    | دریافت لوگو در SETUP
+    | Logo
     |--------------------------------------------------------------------------
     */
 
-    if (session?.step === 100) {
-      const fileId = ctx.message.photo
-        ? ctx.message.photo.at(-1).file_id
-        : (
-            ctx.message.document?.mime_type?.startsWith(
-              "image/"
-            )
-              ? ctx.message.document.file_id
-              : null
-          );
+    if (
+      session?.step === 100
+    ) {
+      const fileId =
+        ctx.message.photo
+          ? ctx.message.photo.at(-1).file_id
+          : (
+              ctx.message.document?.mime_type?.startsWith(
+                "image/"
+              )
+                ? ctx.message.document.file_id
+                : null
+            );
 
       if (!fileId) {
         return ctx.reply(
@@ -342,7 +379,9 @@ bot.on(
       }
 
       const file =
-        await ctx.telegram.getFile(fileId);
+        await ctx.telegram.getFile(
+          fileId
+        );
 
       const url =
         `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
@@ -368,30 +407,32 @@ bot.on(
 
       return ctx.reply(
         "لوگو ذخیره شد. ✅\n\n" +
-        "حالا آیدی کانال را بفرست، مثال:\n" +
-        "@JadoMovie"
+        "حالا آیدی کانال را بفرست، مثال:\n@JadoMovie"
       );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | پوستر فیلم
+    | Poster
     |--------------------------------------------------------------------------
     */
 
     if (!session) return;
 
-    if (session.step !== 0) return;
+    if (session.step !== 0) {
+      return;
+    }
 
-    const fileId = ctx.message.photo
-      ? ctx.message.photo.at(-1).file_id
-      : (
-          ctx.message.document?.mime_type?.startsWith(
-            "image/"
-          )
-            ? ctx.message.document.file_id
-            : null
-        );
+    const fileId =
+      ctx.message.photo
+        ? ctx.message.photo.at(-1).file_id
+        : (
+            ctx.message.document?.mime_type?.startsWith(
+              "image/"
+            )
+              ? ctx.message.document.file_id
+              : null
+          );
 
     if (!fileId) {
       return ctx.reply(
@@ -400,7 +441,9 @@ bot.on(
     }
 
     const file =
-      await ctx.telegram.getFile(fileId);
+      await ctx.telegram.getFile(
+        fileId
+      );
 
     const url =
       `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
@@ -441,25 +484,31 @@ bot.on(
 
 /*
 |--------------------------------------------------------------------------
-| متن‌های مراحل
+| متن
 |--------------------------------------------------------------------------
 */
 
 bot.on(
   "text",
-  adminOnly(async (ctx) => {
+  adminOnly(async (ctx, next) => {
     const session =
-      await getSession(ctx.from.id);
+      await getSession(
+        ctx.from.id
+      );
 
-    if (!session) return;
+    if (!session) {
+      return next();
+    }
 
     /*
     |--------------------------------------------------------------------------
-    | آیدی کانال
+    | Channel
     |--------------------------------------------------------------------------
     */
 
-    if (session.step === 101) {
+    if (
+      session.step === 101
+    ) {
       await setSetting(
         "channel_id",
         ctx.message.text.trim()
@@ -479,18 +528,19 @@ bot.on(
 
     /*
     |--------------------------------------------------------------------------
-    | نمونه استایل
+    | Emoji Sample
     |--------------------------------------------------------------------------
     */
 
-    if (session.step === 102) {
+    if (
+      session.step === 102
+    ) {
       const emojis =
         await saveEmojiSample(ctx);
 
       if (!emojis.length) {
         return ctx.reply(
-          "در این پیام Premium Emoji پیدا نشد.\n\n" +
-          "پیام را مستقیم برای ربات بفرست تا entityهای custom_emoji قابل خواندن باشند."
+          "در این پیام Premium Emoji پیدا نشد."
         );
       }
 
@@ -506,7 +556,94 @@ bot.on(
 
     /*
     |--------------------------------------------------------------------------
-    | مراحل اطلاعات فیلم
+    | لینک حالت BOTH
+    |--------------------------------------------------------------------------
+    |
+    | این قسمت عمداً قبل از منطق عادی قرار دارد.
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      session.step === 9 &&
+      session.data?.linkMode === "both"
+    ) {
+      const url =
+        ctx.message.text.trim();
+
+      if (!url) {
+        return ctx.reply(
+          "لطفاً لینک را بفرست."
+        );
+      }
+
+      const data = {
+        ...session.data
+      };
+
+      /*
+      |--------------------------------------------------------------------------
+      | مرحله اول: زیرنویس
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        data.linkStage === "subtitle"
+      ) {
+        data.links = [
+          {
+            type: "subtitle",
+            url
+          }
+        ];
+
+        data.linkStage =
+          "dubbed";
+
+        await setSession(
+          ctx.from.id,
+          9,
+          data
+        );
+
+        return ctx.reply(
+          "✅ لینک زیرنویس ذخیره شد.\n\n" +
+          "🎤 حالا لینک دوبله فارسی را بفرست:"
+        );
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | مرحله دوم: دوبله
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        data.linkStage === "dubbed"
+      ) {
+        data.links = [
+          ...(data.links || []),
+          {
+            type: "dubbed",
+            url
+          }
+        ];
+
+        await setSession(
+          ctx.from.id,
+          10,
+          data
+        );
+
+        return finalize(
+          ctx,
+          data
+        );
+      }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | مراحل معمول
     |--------------------------------------------------------------------------
     */
 
@@ -514,7 +651,7 @@ bot.on(
       session.step < 1 ||
       session.step > 9
     ) {
-      return;
+      return next();
     }
 
     const data = {
@@ -526,148 +663,108 @@ bot.on(
 
     /*
     |--------------------------------------------------------------------------
-    | انتخاب نوع لینک
+    | Link mode
     |--------------------------------------------------------------------------
     */
 
-    if (key === "linkMode") {
+    if (
+      key === "linkMode"
+    ) {
       return;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | لینک‌ها
+    | لینک فقط دوبله یا فقط زیرنویس
     |--------------------------------------------------------------------------
     */
 
-    if (key === "links") {
-      const urls =
-        ctx.message.text
-          .split(/\n+/)
-          .map((x) => x.trim())
-          .filter(Boolean);
+    if (
+      key === "links"
+    ) {
+      const url =
+        ctx.message.text.trim();
 
-      if (!urls.length) {
+      if (!url) {
         return ctx.reply(
-          "حداقل یک لینک بفرست."
+          "لطفاً لینک دانلود را بفرست."
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | فقط دوبله
-      |--------------------------------------------------------------------------
-      */
-
-      if (data.linkMode === "dubbed") {
-        data.links = urls.map(
-          (url) => ({
-            type: "dubbed",
-            url
-          })
-        );
-
-        await setSession(
-          ctx.from.id,
-          10,
-          data
-        );
-
-        return finalize(
-          ctx,
-          data
-        );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | فقط زیرنویس
-      |--------------------------------------------------------------------------
-      */
-
-      if (data.linkMode === "subtitle") {
-        data.links = urls.map(
-          (url) => ({
+      if (
+        data.linkMode === "subtitle"
+      ) {
+        data.links = [
+          {
             type: "subtitle",
             url
-          })
-        );
-
-        await setSession(
-          ctx.from.id,
-          10,
-          data
-        );
-
-        return finalize(
-          ctx,
-          data
-        );
+          }
+        ];
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | حالت هر دو
-      |--------------------------------------------------------------------------
-      |
-      | در این حالت لینک اول = زیرنویس
-      | لینک دوم = دوبله
-      |
-      | اما برای جلوگیری از اشتباه، در حالت both
-      | اصلاً از این قسمت عبور نمی‌کنیم؛
-      | دکمه انتخاب both در پایین، مرحله جداگانه
-      | برای دریافت دو لینک ایجاد می‌کند.
-      |--------------------------------------------------------------------------
-      */
-
-      if (data.linkMode === "both") {
-        return ctx.reply(
-          "در حالت «هر دو»، لینک‌ها باید جداگانه وارد شوند.\n\n" +
-          "ابتدا لینک زیرنویس را بفرست."
-        );
+      if (
+        data.linkMode === "dubbed"
+      ) {
+        data.links = [
+          {
+            type: "dubbed",
+            url
+          }
+        ];
       }
 
-      return;
+      await setSession(
+        ctx.from.id,
+        10,
+        data
+      );
+
+      return finalize(
+        ctx,
+        data
+      );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | ذخیره اطلاعات معمولی فیلم
+    | اطلاعات فیلم
     |--------------------------------------------------------------------------
     */
 
     data[key] =
       ctx.message.text.trim();
 
-    const next =
+    const nextStep =
       session.step + 1;
 
     await setSession(
       ctx.from.id,
-      next,
+      nextStep,
       data
     );
 
     await sendStep(
       ctx,
-      next
+      nextStep
     );
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| انتخاب دوبله / زیرنویس / هر دو
+| انتخاب نوع لینک
 |--------------------------------------------------------------------------
 */
 
 bot.action(
   /^link:(dubbed|subtitle|both)$/,
-  adminOnly(async (ctx) => {
+  adminOnly(async ctx => {
     await ctx.answerCbQuery();
 
     const session =
-      await getSession(ctx.from.id);
+      await getSession(
+        ctx.from.id
+      );
 
     if (
       !session ||
@@ -685,7 +782,9 @@ bot.action(
     |--------------------------------------------------------------------------
     */
 
-    if (mode === "dubbed") {
+    if (
+      mode === "dubbed"
+    ) {
       await setSession(
         ctx.from.id,
         9,
@@ -696,8 +795,8 @@ bot.action(
       );
 
       return ctx.editMessageText(
-        "نوع لینک: 🎤 دوبله\n\n" +
-        "۹/۱۰ — لینک دوبله فارسی را بفرست."
+        "🎤 نوع لینک: دوبله فارسی\n\n" +
+        "۹/۱۰ — لینک دانلود دوبله فارسی را بفرست:"
       );
     }
 
@@ -707,7 +806,9 @@ bot.action(
     |--------------------------------------------------------------------------
     */
 
-    if (mode === "subtitle") {
+    if (
+      mode === "subtitle"
+    ) {
       await setSession(
         ctx.from.id,
         9,
@@ -718,8 +819,8 @@ bot.action(
       );
 
       return ctx.editMessageText(
-        "نوع لینک: 📝 زیرنویس\n\n" +
-        "۹/۱۰ — لینک زیرنویس چسبیده را بفرست."
+        "📝 نوع لینک: زیرنویس چسبیده\n\n" +
+        "۹/۱۰ — لینک دانلود زیرنویس چسبیده را بفرست:"
       );
     }
 
@@ -729,21 +830,26 @@ bot.action(
     |--------------------------------------------------------------------------
     */
 
-    if (mode === "both") {
+    if (
+      mode === "both"
+    ) {
       await setSession(
         ctx.from.id,
         9,
         {
           ...session.data,
+
           linkMode: "both",
+
           linkStage: "subtitle",
+
           links: []
         }
       );
 
       return ctx.editMessageText(
-        "نوع لینک: 🎤 + 📝 هر دو\n\n" +
-        "۹/۱۰ — ابتدا لینک زیرنویس چسبیده را بفرست."
+        "🎤 + 📝 نوع لینک: هر دو\n\n" +
+        "۹/۱۰ — اول لینک دانلود زیرنویس چسبیده را بفرست:"
       );
     }
   })
@@ -751,112 +857,7 @@ bot.action(
 
 /*
 |--------------------------------------------------------------------------
-| دریافت لینک‌ها در حالت هر دو
-|--------------------------------------------------------------------------
-*/
-
-bot.on(
-  "text",
-  adminOnly(async (ctx, next) => {
-    const session =
-      await getSession(ctx.from.id);
-
-    if (!session) {
-      return next();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | فقط زمانی اجرا شود که در مرحله لینک باشیم
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      session.step !== 9 ||
-      session.data?.linkMode !== "both"
-    ) {
-      return next();
-    }
-
-    const url =
-      ctx.message.text.trim();
-
-    if (!url) {
-      return ctx.reply(
-        "لطفاً لینک را بفرست."
-      );
-    }
-
-    const data = {
-      ...session.data
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | لینک اول = زیرنویس
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      data.linkStage === "subtitle"
-    ) {
-      data.links = [
-        {
-          type: "subtitle",
-          url
-        }
-      ];
-
-      data.linkStage = "dubbed";
-
-      await setSession(
-        ctx.from.id,
-        9,
-        data
-      );
-
-      return ctx.reply(
-        "لینک زیرنویس ذخیره شد. ✅\n\n" +
-        "حالا لینک دوبله فارسی را بفرست."
-      );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | لینک دوم = دوبله
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      data.linkStage === "dubbed"
-    ) {
-      data.links = [
-        ...(data.links || []),
-        {
-          type: "dubbed",
-          url
-        }
-      ];
-
-      await setSession(
-        ctx.from.id,
-        10,
-        data
-      );
-
-      return finalize(
-        ctx,
-        data
-      );
-    }
-
-    return next();
-  })
-);
-
-/*
-|--------------------------------------------------------------------------
-| ساخت و ارسال نهایی
+| Finalize
 |--------------------------------------------------------------------------
 */
 
@@ -871,12 +872,6 @@ async function finalize(
   let out = null;
 
   try {
-    /*
-    |--------------------------------------------------------------------------
-    | لوگو
-    |--------------------------------------------------------------------------
-    */
-
     const logoBase64 =
       await getSetting(
         "logo_base64",
@@ -891,32 +886,14 @@ async function finalize(
           )
         : null;
 
-    /*
-    |--------------------------------------------------------------------------
-    | ساخت پوستر
-    |--------------------------------------------------------------------------
-    */
-
     out =
       await makePoster(
         data.posterPath,
         logo
       );
 
-    /*
-    |--------------------------------------------------------------------------
-    | ساخت کپشن
-    |--------------------------------------------------------------------------
-    */
-
     const caption =
       await buildCaption(data);
-
-    /*
-    |--------------------------------------------------------------------------
-    | مقصد
-    |--------------------------------------------------------------------------
-    */
 
     const target =
       await getSetting(
@@ -926,12 +903,6 @@ async function finalize(
 
     const chatId =
       target || ctx.chat.id;
-
-    /*
-    |--------------------------------------------------------------------------
-    | ارسال
-    |--------------------------------------------------------------------------
-    */
 
     await ctx.telegram.sendPhoto(
       chatId,
@@ -955,7 +926,7 @@ async function finalize(
     );
 
     await ctx.reply(
-      "خطا در ساخت یا ارسال محتوا.\n\n" +
+      "خطا در ساخت یا ارسال محتوا.\n" +
       "لاگ Render را بررسی کن."
     );
   } finally {
