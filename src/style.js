@@ -1,4 +1,4 @@
-import { getSetting } from "./db.js";
+import { getSetting, setSetting } from "./db.js";
 
 function esc(s = "") {
   return String(s)
@@ -10,6 +10,7 @@ function esc(s = "") {
 
 function customEmoji(id, fallback) {
   if (!id) return fallback;
+
   return `<tg-emoji emoji-id="${esc(id)}">${fallback}</tg-emoji>`;
 }
 
@@ -19,22 +20,23 @@ function downloadLine(url) {
 
 export async function buildCaption(movie) {
   const style = await getSetting("emoji_style", {});
+
   const e = (name, fallback) =>
     customEmoji(style?.[name]?.id, fallback);
 
   const lines = [];
 
-  // عنوان فارسی
+  // فیلم فارسی
   lines.push(
     `${e("movie", "🎞️")} | <b>فیلم : ${esc(movie.faTitle)} ${esc(movie.year)}</b>`
   );
 
-  // عنوان انگلیسی + IMDb
+  // Movie + IMDb
   lines.push(
     `${e("film", "🎞️")} | <b>Movie : ${esc(movie.enTitle)}</b>  ${e("imdb", "🌹")} <b>${esc(movie.imdb)}</b>`
   );
 
-  // کشور
+  // محصول
   lines.push(
     `${e("country", "🌎")} | <b>محصول : ${esc(movie.country)}</b>`
   );
@@ -46,29 +48,33 @@ export async function buildCaption(movie) {
 
   lines.push("");
 
-  // خلاصه داستان
+  /*
+   * خلاصه داستان
+   * دقیقاً به صورت Quote
+   */
   lines.push(
-    `> ${e("summary", "💬")} | <b>خلاصه داستان: ${esc(movie.summary)}</b>`
+    `> ${e("summary", "💬")} | <b>خلاصه داستان:${esc(movie.summary)}</b>`
   );
 
   /*
    * لینک‌ها
-   *
-   * subtitle = فقط زیرنویس
-   * dubbed   = فقط دوبله
-   * both     = اگر نسخه‌های جداگانه وارد شوند،
-   *             هر کدام در بخش خودش قرار می‌گیرد.
    */
 
-  const links = Array.isArray(movie.links) ? movie.links : [];
+  const links = Array.isArray(movie.links)
+    ? movie.links
+    : [];
 
   const subtitleLinks = links.filter(
-    x => x.type === "subtitle"
+    item => item?.type === "subtitle"
   );
 
   const dubbedLinks = links.filter(
-    x => x.type === "dubbed"
+    item => item?.type === "dubbed"
   );
+
+  /*
+   * زیرنویس
+   */
 
   if (subtitleLinks.length) {
     lines.push("");
@@ -79,6 +85,10 @@ export async function buildCaption(movie) {
     }
   }
 
+  /*
+   * دوبله
+   */
+
   if (dubbedLinks.length) {
     lines.push("");
     lines.push(`🎤<b>دوبله فارسی:</b>`);
@@ -88,7 +98,14 @@ export async function buildCaption(movie) {
     }
   }
 
-  const channelId = await getSetting("channel_id", null);
+  /*
+   * کانال
+   */
+
+  const channelId = await getSetting(
+    "channel_id",
+    null
+  );
 
   if (channelId) {
     lines.push("");
@@ -98,7 +115,16 @@ export async function buildCaption(movie) {
   return lines.join("\n");
 }
 
-export function parseCustomEmojiEntities(text, entities = []) {
+/*
+|--------------------------------------------------------------------------
+| Premium Emoji
+|--------------------------------------------------------------------------
+*/
+
+export function parseCustomEmojiEntities(
+  text,
+  entities = []
+) {
   const result = [];
 
   for (const entity of entities) {
@@ -109,9 +135,8 @@ export function parseCustomEmojiEntities(text, entities = []) {
       continue;
     }
 
-    const offset = entity.offset;
     const chars = Array.from(text || "");
-    const char = chars[offset] || "🙂";
+    const char = chars[entity.offset] || "🙂";
 
     result.push({
       id: entity.custom_emoji_id,
@@ -129,7 +154,10 @@ export async function saveEmojiSample(ctx) {
     return [];
   }
 
-  const text = message.text || message.caption || "";
+  const text =
+    message.text ||
+    message.caption ||
+    "";
 
   const entities =
     message.entities ||
@@ -158,13 +186,15 @@ export async function saveEmojiSample(ctx) {
 
   const style = {};
 
-  emojis.slice(0, names.length).forEach((item, i) => {
-    style[names[i]] = item;
-  });
+  emojis
+    .slice(0, names.length)
+    .forEach((item, i) => {
+      style[names[i]] = item;
+    });
 
-  await import("./db.js").then(
-    ({ setSetting }) =>
-      setSetting("emoji_style", style)
+  await setSetting(
+    "emoji_style",
+    style
   );
 
   return emojis;
