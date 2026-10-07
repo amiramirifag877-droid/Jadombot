@@ -13,52 +13,86 @@ function customEmoji(id, fallback) {
   return `<tg-emoji emoji-id="${esc(id)}">${fallback}</tg-emoji>`;
 }
 
+function downloadLine(url) {
+  return `⬇️(<a href="${esc(url)}">برای دانلود اینجا کلیک کنید</a>) ➡️`;
+}
+
 export async function buildCaption(movie) {
   const style = await getSetting("emoji_style", {});
-  const e = (name, fallback) => customEmoji(style?.[name]?.id, fallback);
+  const e = (name, fallback) =>
+    customEmoji(style?.[name]?.id, fallback);
 
   const lines = [];
 
+  // عنوان فارسی
   lines.push(
-    `${e("movie", "🎬")} <b>فیلم : ${esc(movie.faTitle)} ${esc(movie.year)}</b>`
+    `${e("movie", "🎞️")} | <b>فیلم : ${esc(movie.faTitle)} ${esc(movie.year)}</b>`
   );
 
+  // عنوان انگلیسی + IMDb
   lines.push(
-    `${e("film", "🎞️")} | <b>Movie : ${esc(movie.enTitle)}</b>  ${e("imdb", "⭐")} <b>${esc(movie.imdb)}</b>`
+    `${e("film", "🎞️")} | <b>Movie : ${esc(movie.enTitle)}</b>  ${e("imdb", "🌹")} <b>${esc(movie.imdb)}</b>`
   );
 
+  // کشور
   lines.push(
-    `${e("country", "🌐")} | <b>محصول : ${esc(movie.country)}</b>`
+    `${e("country", "🌎")} | <b>محصول : ${esc(movie.country)}</b>`
   );
 
+  // ژانر
   lines.push(
     `${e("genre", "🎭")} | <b>ژانر : ${esc(movie.genre)}</b>`
   );
 
   lines.push("");
 
+  // خلاصه داستان
   lines.push(
-    `${e("summary", "💬")} <b>خلاصه داستان:</b>\n<blockquote>${esc(movie.summary)}</blockquote>`
+    `> ${e("summary", "💬")} | <b>خلاصه داستان: ${esc(movie.summary)}</b>`
   );
 
-  if (movie.links?.length) {
+  /*
+   * لینک‌ها
+   *
+   * subtitle = فقط زیرنویس
+   * dubbed   = فقط دوبله
+   * both     = اگر نسخه‌های جداگانه وارد شوند،
+   *             هر کدام در بخش خودش قرار می‌گیرد.
+   */
+
+  const links = Array.isArray(movie.links) ? movie.links : [];
+
+  const subtitleLinks = links.filter(
+    x => x.type === "subtitle"
+  );
+
+  const dubbedLinks = links.filter(
+    x => x.type === "dubbed"
+  );
+
+  if (subtitleLinks.length) {
     lines.push("");
-    for (const item of movie.links) {
-      const label = item.type === "dubbed"
-        ? "دوبله فارسی"
-        : item.type === "subtitle"
-          ? "زیرنویس فارسی"
-          : "دوبله فارسی + زیرنویس فارسی";
-      lines.push(
-        `${e("download", "📥")} <b>${label}:</b> <a href="${esc(item.url)}">برای دانلود اینجا کلیک کنید</a>`
-      );
+    lines.push(`✍<b>زیرنویس چسبیده:</b>`);
+
+    for (const item of subtitleLinks) {
+      lines.push(downloadLine(item.url));
+    }
+  }
+
+  if (dubbedLinks.length) {
+    lines.push("");
+    lines.push(`🎤<b>دوبله فارسی:</b>`);
+
+    for (const item of dubbedLinks) {
+      lines.push(downloadLine(item.url));
     }
   }
 
   const channelId = await getSetting("channel_id", null);
+
   if (channelId) {
     lines.push("");
-    lines.push(`${e("channel", "📣")} <b>${esc(channelId)}</b>`);
+    lines.push(`✈️${esc(channelId)}`);
   }
 
   return lines.join("\n");
@@ -66,28 +100,72 @@ export async function buildCaption(movie) {
 
 export function parseCustomEmojiEntities(text, entities = []) {
   const result = [];
+
   for (const entity of entities) {
-    if (entity.type !== "custom_emoji" || !entity.custom_emoji_id) continue;
+    if (
+      entity.type !== "custom_emoji" ||
+      !entity.custom_emoji_id
+    ) {
+      continue;
+    }
+
     const offset = entity.offset;
-    const char = Array.from(text || "")[offset] || "🙂";
-    result.push({ id: entity.custom_emoji_id, fallback: char });
+    const chars = Array.from(text || "");
+    const char = chars[offset] || "🙂";
+
+    result.push({
+      id: entity.custom_emoji_id,
+      fallback: char
+    });
   }
+
   return result;
 }
 
 export async function saveEmojiSample(ctx) {
   const message = ctx.message;
-  if (!message?.text && !message?.caption) return [];
-  const text = message.text || message.caption || "";
-  const entities = message.entities || message.caption_entities || [];
-  const emojis = parseCustomEmojiEntities(text, entities);
-  if (!emojis.length) return [];
 
-  const names = ["movie","film","imdb","country","genre","summary","download","channel"];
+  if (!message?.text && !message?.caption) {
+    return [];
+  }
+
+  const text = message.text || message.caption || "";
+
+  const entities =
+    message.entities ||
+    message.caption_entities ||
+    [];
+
+  const emojis = parseCustomEmojiEntities(
+    text,
+    entities
+  );
+
+  if (!emojis.length) {
+    return [];
+  }
+
+  const names = [
+    "movie",
+    "film",
+    "imdb",
+    "country",
+    "genre",
+    "summary",
+    "download",
+    "channel"
+  ];
+
   const style = {};
+
   emojis.slice(0, names.length).forEach((item, i) => {
     style[names[i]] = item;
   });
-  await import("./db.js").then(({ setSetting }) => setSetting("emoji_style", style));
+
+  await import("./db.js").then(
+    ({ setSetting }) =>
+      setSetting("emoji_style", style)
+  );
+
   return emojis;
 }
