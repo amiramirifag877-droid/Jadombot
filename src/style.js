@@ -2,32 +2,26 @@ import { getSetting, setSetting } from "./db.js";
 
 /*
  * ============================================================
- * JadoMovie - Style Engine
+ * JadoMovie - Premium Emoji Style Engine
  * ============================================================
  *
- * این فایل:
+ * Premium Emoji mapping:
  *
- * 1. Premium Emoji های پیام نمونه را از entities واقعی تلگرام
- *    استخراج می‌کند.
+ * movie         = 🎞️
+ * film          = 🎞️
+ * imdb          = 🌹
+ * country       = 🌎
+ * genre         = 🎭
+ * summary       = 💬
+ * subtitle      = ✍️
+ * downloadDown  = ⬇️
+ * downloadNext  = ➡️
+ * dubbed        = 🎤
+ * channel       = ✈️
  *
- * 2. هر Premium Emoji را بر اساس متن همان خط تشخیص می‌دهد.
- *
- * 3. برای هر بخش، custom_emoji_id واقعی را ذخیره می‌کند.
- *
- * 4. در زمان ساخت پست، همان ID واقعی را استفاده می‌کند.
- *
- * بخش‌ها:
- *
- * movie
- * film
- * imdb
- * country
- * genre
- * summary
- * subtitle
- * dubbed
- * channel
- *
+ * IMPORTANT:
+ * Only Telegram custom_emoji entities are saved.
+ * Normal Unicode emojis are NOT saved as Premium Emoji.
  * ============================================================
  */
 
@@ -46,7 +40,7 @@ function esc(value = "") {
 
 
 /* ============================================================
-   PREMIUM EMOJI
+   CREATE TELEGRAM PREMIUM EMOJI
    ============================================================ */
 
 function customEmoji(id, fallback = "🙂") {
@@ -54,10 +48,6 @@ function customEmoji(id, fallback = "🙂") {
     return fallback;
   }
 
-  /*
-   * Telegram custom emoji باید دقیقاً یک emoji معمولی
-   * را به عنوان محتوای tg-emoji دریافت کند.
-   */
   return `<tg-emoji emoji-id="${esc(id)}">${esc(fallback)}</tg-emoji>`;
 }
 
@@ -67,10 +57,8 @@ function customEmoji(id, fallback = "🙂") {
    ============================================================ */
 
 /*
- * Telegram offset برای MessageEntity بر اساس UTF-16 است.
- *
- * بنابراین نباید از text[offset] یا Array.from(text)[offset]
- * برای پیدا کردن کاراکتر استفاده کنیم.
+ * Telegram MessageEntity offset/length
+ * بر اساس UTF-16 است.
  */
 
 function utf16Length(text = "") {
@@ -99,10 +87,10 @@ function utf16Slice(text = "", start = 0, end = Infinity) {
 
 
 /* ============================================================
-   گرفتن متن یک Entity
+   ENTITY TEXT
    ============================================================ */
 
-function entityText(text, entity) {
+function getEntityText(text, entity) {
   const start = entity.offset || 0;
   const end = start + (entity.length || 0);
 
@@ -111,32 +99,36 @@ function entityText(text, entity) {
 
 
 /* ============================================================
-   پیدا کردن خطی که Entity داخل آن قرار دارد
+   FIND LINE OF ENTITY
    ============================================================ */
 
 function getLineInfo(text, entity) {
-  const start = entity.offset || 0;
+  const offset = entity.offset || 0;
 
-  const before = utf16Slice(text, 0, start);
+  const before = utf16Slice(
+    text,
+    0,
+    offset
+  );
 
-  const lineStartCharIndex = before.lastIndexOf("\n");
+  const lastNewLine = before.lastIndexOf("\n");
 
   const lineStart =
-    lineStartCharIndex === -1
+    lastNewLine === -1
       ? 0
-      : lineStartCharIndex + 1;
+      : lastNewLine + 1;
 
   const after = utf16Slice(
     text,
-    start
+    offset
   );
 
-  const newlineIndex = after.indexOf("\n");
+  const nextNewLine = after.indexOf("\n");
 
   const lineEnd =
-    newlineIndex === -1
+    nextNewLine === -1
       ? utf16Length(text)
-      : start + newlineIndex;
+      : offset + nextNewLine;
 
   const line = utf16Slice(
     text,
@@ -153,7 +145,7 @@ function getLineInfo(text, entity) {
 
 
 /* ============================================================
-   نرمال‌سازی متن برای تحلیل
+   NORMALIZE TEXT
    ============================================================ */
 
 function normalizeText(text = "") {
@@ -174,86 +166,51 @@ function normalizeText(text = "") {
 
 
 /* ============================================================
-   تشخیص بخش Premium Emoji
+   DETECT EMOJI ROLE
    ============================================================ */
 
-function detectStyleName(line) {
+function detectRoleFromLine(line) {
   const normalized = normalizeText(line);
 
-  /*
-   * ترتیب این شرط‌ها مهم است.
-   */
+  /* -------------------------
+     Movie
+     ------------------------- */
 
-  // ----------------------------
-  // Movie
-  // ----------------------------
-
-  if (
-    normalized.includes("movie")
-  ) {
+  if (normalized.includes("movie")) {
     return "film";
   }
 
 
-  // ----------------------------
-  // IMDb
-  // ----------------------------
+  /* -------------------------
+     Country
+     ------------------------- */
 
-  /*
-   * خط Movie معمولاً شامل دو Premium Emoji است:
-   *
-   * 🎞 | Movie : Runner   🌹 6.6
-   *
-   * برای تشخیص IMDb از وجود امتیاز استفاده می‌کنیم.
-   */
-
-  if (
-    /\b\d(?:[.,]\d)?\b/.test(normalized) &&
-    (
-      normalized.includes("movie") ||
-      normalized.includes("imdb")
-    )
-  ) {
-    return "imdb";
-  }
-
-
-  // ----------------------------
-  // محصول
-  // ----------------------------
-
-  if (
-    normalized.includes("محصول")
-  ) {
+  if (normalized.includes("محصول")) {
     return "country";
   }
 
 
-  // ----------------------------
-  // ژانر
-  // ----------------------------
+  /* -------------------------
+     Genre
+     ------------------------- */
 
-  if (
-    normalized.includes("ژانر")
-  ) {
+  if (normalized.includes("ژانر")) {
     return "genre";
   }
 
 
-  // ----------------------------
-  // خلاصه داستان
-  // ----------------------------
+  /* -------------------------
+     Summary
+     ------------------------- */
 
-  if (
-    normalized.includes("خلاصه داستان")
-  ) {
+  if (normalized.includes("خلاصه داستان")) {
     return "summary";
   }
 
 
-  // ----------------------------
-  // زیرنویس
-  // ----------------------------
+  /* -------------------------
+     Subtitle
+     ------------------------- */
 
   if (
     normalized.includes("زیرنویس") ||
@@ -263,20 +220,18 @@ function detectStyleName(line) {
   }
 
 
-  // ----------------------------
-  // دوبله
-  // ----------------------------
+  /* -------------------------
+     Dubbed
+     ------------------------- */
 
-  if (
-    normalized.includes("دوبله")
-  ) {
+  if (normalized.includes("دوبله")) {
     return "dubbed";
   }
 
 
-  // ----------------------------
-  // کانال
-  // ----------------------------
+  /* -------------------------
+     Channel
+     ------------------------- */
 
   if (
     normalized.includes("@jadomovie") ||
@@ -286,13 +241,11 @@ function detectStyleName(line) {
   }
 
 
-  // ----------------------------
-  // فیلم
-  // ----------------------------
+  /* -------------------------
+     Movie / Film
+     ------------------------- */
 
-  if (
-    normalized.includes("فیلم")
-  ) {
+  if (normalized.includes("فیلم")) {
     return "movie";
   }
 
@@ -302,7 +255,7 @@ function detectStyleName(line) {
 
 
 /* ============================================================
-   تشخیص دقیق Premium Emoji های پیام نمونه
+   PARSE PREMIUM EMOJIS
    ============================================================ */
 
 export function parseCustomEmojiEntities(
@@ -313,80 +266,108 @@ export function parseCustomEmojiEntities(
     return [];
   }
 
-  const result = [];
 
   /*
-   * فقط custom_emoji واقعی را قبول می‌کنیم.
+   * فقط Premium Emoji واقعی.
    *
-   * Emoji معمولی بدون custom_emoji_id اینجا وارد نمی‌شود.
+   * اگر entity نوع custom_emoji نباشد
+   * اصلاً وارد سیستم نمی‌شود.
    */
-  const customEntities = entities.filter(
-    entity =>
-      entity &&
-      entity.type === "custom_emoji" &&
-      entity.custom_emoji_id
-  );
+
+  const customEntities = entities
+    .filter(
+      entity =>
+        entity &&
+        entity.type === "custom_emoji" &&
+        entity.custom_emoji_id
+    )
+    .sort(
+      (a, b) =>
+        (a.offset || 0) -
+        (b.offset || 0)
+    );
+
+
+  const result = [];
 
 
   for (const entity of customEntities) {
-    const { line } = getLineInfo(text, entity);
+    const lineInfo =
+      getLineInfo(
+        text,
+        entity
+      );
 
-    const rawEmoji = entityText(text, entity);
 
-    /*
-     * برای custom emoji باید دقیقاً همان کاراکتر جایگزین
-     * داخل entity باشد.
-     */
+    const fallback =
+      getEntityText(
+        text,
+        entity
+      ) || "🙂";
+
+
     result.push({
-      id: String(entity.custom_emoji_id),
-      fallback: rawEmoji || "🙂",
-      offset: entity.offset || 0,
-      length: entity.length || 0,
-      line,
+      id: String(
+        entity.custom_emoji_id
+      ),
+
+      fallback,
+
+      offset:
+        entity.offset || 0,
+
+      length:
+        entity.length || 0,
+
+      line:
+        lineInfo.line,
+
       name: null
     });
   }
 
 
   /*
-   * ----------------------------------------------------------
+   * ==========================================================
+   * STEP 1
    * Movie line
-   * ----------------------------------------------------------
    *
    * مثال:
    *
-   * 🎞 | فیلم : دونده 2026
+   * 🎞 | Movie : Runner  🌹 6.6
    *
-   * 🎞| Movie : Runner  🌹 6.6
-   *
-   * در خط Movie ممکن است دو custom emoji داشته باشیم.
-   *
-   * اول = film
-   * دوم = imdb
+   * اولین Premium Emoji = film
+   * دومین Premium Emoji = imdb
+   * ==========================================================
    */
 
-  const movieLineItems = result
+  const movieLine = result
     .filter(item =>
-      normalizeText(item.line).includes("movie")
+      normalizeText(
+        item.line
+      ).includes("movie")
     )
-    .sort((a, b) => a.offset - b.offset);
+    .sort(
+      (a, b) =>
+        a.offset - b.offset
+    );
 
 
-  if (movieLineItems.length > 0) {
-    movieLineItems.forEach((item, index) => {
-      if (index === 0) {
-        item.name = "film";
-      } else if (index === 1) {
-        item.name = "imdb";
-      }
-    });
+  if (movieLine.length >= 1) {
+    movieLine[0].name = "film";
+  }
+
+
+  if (movieLine.length >= 2) {
+    movieLine[1].name = "imdb";
   }
 
 
   /*
-   * ----------------------------------------------------------
-   * بقیه خطوط
-   * ----------------------------------------------------------
+   * ==========================================================
+   * STEP 2
+   * Detect normal sections
+   * ==========================================================
    */
 
   for (const item of result) {
@@ -394,30 +375,138 @@ export function parseCustomEmojiEntities(
       continue;
     }
 
-    const detected = detectStyleName(item.line);
+    const role =
+      detectRoleFromLine(
+        item.line
+      );
 
-    if (detected) {
-      item.name = detected;
+    if (role) {
+      item.name = role;
     }
   }
 
 
   /*
-   * ----------------------------------------------------------
-   * خط اول فیلم
-   * ----------------------------------------------------------
+   * ==========================================================
+   * STEP 3
+   * Movie title line
    *
-   * اگر هنوز movie پیدا نشده، خطی که «فیلم» دارد را بررسی می‌کنیم.
+   * 🎞 | فیلم : دونده 2026
+   * ==========================================================
    */
 
-  const movieItem = result.find(
-    item =>
-      !item.name &&
-      normalizeText(item.line).includes("فیلم")
-  );
+  for (const item of result) {
+    if (item.name) {
+      continue;
+    }
 
-  if (movieItem) {
-    movieItem.name = "movie";
+    const normalized =
+      normalizeText(
+        item.line
+      );
+
+    if (
+      normalized.includes("فیلم")
+    ) {
+      item.name = "movie";
+      break;
+    }
+  }
+
+
+  /*
+   * ==========================================================
+   * STEP 4
+   * Download arrows
+   *
+   * این دو ایموجی معمولاً در خط دانلود هستند:
+   *
+   * ⬇️(برای دانلود اینجا کلیک کنید) ➡️
+   *
+   * اگر Premium باشند، Telegram آن‌ها را
+   * به عنوان custom_emoji entity می‌فرستد.
+   * ==========================================================
+   */
+
+  const downloadLines = result
+    .filter(item =>
+      normalizeText(
+        item.line
+      ).includes(
+        "برای دانلود"
+      )
+    )
+    .sort(
+      (a, b) =>
+        a.offset - b.offset
+    );
+
+
+  for (const item of downloadLines) {
+    /*
+     * اولین Premium Emoji خط دانلود = ⬇️
+     * دومین Premium Emoji = ➡️
+     */
+
+    const sameLine = result
+      .filter(other => {
+        return (
+          other.line === item.line
+        );
+      })
+      .sort(
+        (a, b) =>
+          a.offset - b.offset
+      );
+
+
+    if (
+      sameLine.length >= 1 &&
+      !sameLine[0].name
+    ) {
+      sameLine[0].name =
+        "downloadDown";
+    }
+
+
+    if (
+      sameLine.length >= 2 &&
+      !sameLine[1].name
+    ) {
+      sameLine[1].name =
+        "downloadNext";
+    }
+  }
+
+
+  /*
+   * ==========================================================
+   * STEP 5
+   * Detect channel emoji
+   * ==========================================================
+   */
+
+  for (const item of result) {
+    if (item.name) {
+      continue;
+    }
+
+    const normalized =
+      normalizeText(
+        item.line
+      );
+
+    if (
+      normalized.includes(
+        "@jadomovie"
+      ) ||
+      normalized.includes(
+        "jadomovie"
+      )
+    ) {
+      item.name =
+        "channel";
+    }
   }
 
 
@@ -426,11 +515,13 @@ export function parseCustomEmojiEntities(
 
 
 /* ============================================================
-   SAVE STYLE SAMPLE
+   SAVE PREMIUM EMOJI SAMPLE
    ============================================================ */
 
 export async function saveEmojiSample(ctx) {
-  const message = ctx.message;
+  const message =
+    ctx?.message;
+
 
   if (!message) {
     return [];
@@ -438,7 +529,7 @@ export async function saveEmojiSample(ctx) {
 
 
   /*
-   * پیام متنی یا کپشن عکس
+   * متن پیام
    */
 
   const text =
@@ -453,7 +544,7 @@ export async function saveEmojiSample(ctx) {
 
 
   /*
-   * entities واقعی تلگرام
+   * Telegram entities
    */
 
   const entities =
@@ -463,13 +554,14 @@ export async function saveEmojiSample(ctx) {
 
 
   /*
-   * فقط Premium Emoji
+   * استخراج Premium Emoji واقعی
    */
 
-  const parsed = parseCustomEmojiEntities(
-    text,
-    entities
-  );
+  const parsed =
+    parseCustomEmojiEntities(
+      text,
+      entities
+    );
 
 
   if (!parsed.length) {
@@ -478,40 +570,97 @@ export async function saveEmojiSample(ctx) {
 
 
   /*
-   * mapping نهایی
+   * Mapping نهایی
    */
 
   const style = {};
 
 
   /*
-   * فقط مواردی که واقعاً custom_emoji_id دارند ذخیره می‌شوند.
-   *
-   * بنابراین اگر مثلاً ⬇️ یا ➡️ معمولی باشند،
-   * وارد Premium Emoji ها نمی‌شوند.
+   * فقط Premium Emoji هایی که role
+   * مشخص دارند ذخیره می‌شوند.
    */
 
   for (const item of parsed) {
-    if (!item.name) {
+    if (
+      !item.name ||
+      !item.id
+    ) {
       continue;
     }
 
+
     /*
-     * اگر یک بخش چند بار پیدا شد،
-     * اولین مورد معتبر را نگه می‌داریم.
+     * اگر یک role دوبار وجود داشته باشد،
+     * اولین مورد معتبر نگه داشته می‌شود.
      */
 
     if (!style[item.name]) {
       style[item.name] = {
         id: item.id,
-        fallback: item.fallback
+        fallback:
+          item.fallback
       };
     }
   }
 
 
   /*
-   * ذخیره در دیتابیس
+   * ==========================================================
+   * LOG
+   *
+   * این بخش برای Render بسیار مهم است.
+   * ==========================================================
+   */
+
+  console.log(
+    "============================================"
+  );
+
+  console.log(
+    "JadoMovie Premium Emoji Analysis"
+  );
+
+  console.log(
+    "============================================"
+  );
+
+
+  const names = [
+    "movie",
+    "film",
+    "imdb",
+    "country",
+    "genre",
+    "summary",
+    "subtitle",
+    "downloadDown",
+    "downloadNext",
+    "dubbed",
+    "channel"
+  ];
+
+
+  for (const name of names) {
+    if (style[name]) {
+      console.log(
+        `${name}: PREMIUM -> ${style[name].id} -> ${style[name].fallback}`
+      );
+    } else {
+      console.log(
+        `${name}: NOT FOUND`
+      );
+    }
+  }
+
+
+  console.log(
+    "============================================"
+  );
+
+
+  /*
+   * ذخیره در Database
    */
 
   await setSetting(
@@ -520,39 +669,22 @@ export async function saveEmojiSample(ctx) {
   );
 
 
-  /*
-   * لاگ برای Render
-   *
-   * این لاگ خیلی مهم است.
-   * بعد از ارسال پیام نمونه در Render می‌توانی ببینی
-   * کدام ID برای کدام بخش ذخیره شده.
-   */
-
-  console.log(
-    "========== JadoMovie Emoji Style =========="
-  );
-
-  for (const [name, value] of Object.entries(style)) {
-    console.log(
-      `${name} => ${value.id} => ${value.fallback}`
-    );
-  }
-
-  console.log(
-    "==========================================="
-  );
-
-
   return parsed;
 }
 
 
 /* ============================================================
-   GET PREMIUM EMOJI
+   GET SAVED PREMIUM EMOJI
    ============================================================ */
 
-function getStyleEmoji(style, name, fallback) {
-  const item = style?.[name];
+function getStyleEmoji(
+  style,
+  name,
+  fallback
+) {
+  const item =
+    style?.[name];
+
 
   if (
     item &&
@@ -560,20 +692,23 @@ function getStyleEmoji(style, name, fallback) {
   ) {
     return customEmoji(
       item.id,
-      item.fallback || fallback
+      item.fallback ||
+        fallback
     );
   }
 
+
   /*
-   * اگر Premium Emoji برای این قسمت ذخیره نشده باشد،
-   * ایموجی معمولی استفاده می‌شود.
+   * اگر Premium برای این بخش پیدا نشده،
+   * fallback معمولی استفاده می‌شود.
    */
+
   return fallback;
 }
 
 
 /* ============================================================
-   BUILD CAPTION
+   BUILD FINAL POST
    ============================================================ */
 
 export async function buildCaption(movie) {
@@ -585,7 +720,7 @@ export async function buildCaption(movie) {
 
 
   /*
-   * Premium Emoji ها
+   * Premium Emoji
    */
 
   const movieEmoji =
@@ -595,12 +730,14 @@ export async function buildCaption(movie) {
       "🎞️"
     );
 
+
   const filmEmoji =
     getStyleEmoji(
       style,
       "film",
       "🎞️"
     );
+
 
   const imdbEmoji =
     getStyleEmoji(
@@ -609,12 +746,14 @@ export async function buildCaption(movie) {
       "🌹"
     );
 
+
   const countryEmoji =
     getStyleEmoji(
       style,
       "country",
       "🌎"
     );
+
 
   const genreEmoji =
     getStyleEmoji(
@@ -623,12 +762,14 @@ export async function buildCaption(movie) {
       "🎭"
     );
 
+
   const summaryEmoji =
     getStyleEmoji(
       style,
       "summary",
       "💬"
     );
+
 
   const subtitleEmoji =
     getStyleEmoji(
@@ -637,12 +778,30 @@ export async function buildCaption(movie) {
       "✍️"
     );
 
+
+  const downloadDownEmoji =
+    getStyleEmoji(
+      style,
+      "downloadDown",
+      "⬇️"
+    );
+
+
+  const downloadNextEmoji =
+    getStyleEmoji(
+      style,
+      "downloadNext",
+      "➡️"
+    );
+
+
   const dubbedEmoji =
     getStyleEmoji(
       style,
       "dubbed",
       "🎤"
     );
+
 
   const channelEmoji =
     getStyleEmoji(
@@ -656,7 +815,7 @@ export async function buildCaption(movie) {
 
 
   /* ==========================================================
-     فیلم
+     FILM
      ========================================================== */
 
   lines.push(
@@ -665,7 +824,7 @@ export async function buildCaption(movie) {
 
 
   /* ==========================================================
-     Movie + IMDb
+     MOVIE + IMDb
      ========================================================== */
 
   lines.push(
@@ -675,7 +834,7 @@ export async function buildCaption(movie) {
 
 
   /* ==========================================================
-     محصول
+     COUNTRY
      ========================================================== */
 
   lines.push(
@@ -684,7 +843,7 @@ export async function buildCaption(movie) {
 
 
   /* ==========================================================
-     ژانر
+     GENRE
      ========================================================== */
 
   lines.push(
@@ -696,11 +855,11 @@ export async function buildCaption(movie) {
 
 
   /* ==========================================================
-     خلاصه داستان
+     SUMMARY
      ========================================================== */
 
   /*
-   * blockquote واقعی Telegram
+   * خلاصه داستان به صورت Quote واقعی Telegram
    */
 
   lines.push(
@@ -711,28 +870,40 @@ export async function buildCaption(movie) {
 
 
   /*
-   * لینک‌های دانلود
+   * ==========================================================
+     DOWNLOAD LINKS
+     ==========================================================
    */
 
+  const links =
+    Array.isArray(movie.links)
+      ? movie.links
+      : [];
+
+
   const subtitleLinks =
-    (movie.links || []).filter(
+    links.filter(
       item =>
-        item.type === "subtitle"
+        item.type ===
+        "subtitle"
     );
 
 
   const dubbedLinks =
-    (movie.links || []).filter(
+    links.filter(
       item =>
-        item.type === "dubbed"
+        item.type ===
+        "dubbed"
     );
 
 
   /* ==========================================================
-     زیرنویس
+     SUBTITLE
      ========================================================== */
 
-  if (subtitleLinks.length) {
+  if (
+    subtitleLinks.length
+  ) {
     lines.push("");
 
     lines.push(
@@ -740,19 +911,27 @@ export async function buildCaption(movie) {
     );
 
 
-    for (const item of subtitleLinks) {
+    for (
+      const item of subtitleLinks
+    ) {
       lines.push(
-        `⬇️(<b><a href="${esc(item.url)}">برای دانلود اینجا کلیک کنید</a></b>) ➡️`
+        `${downloadDownEmoji}` +
+        `(<b><a href="${esc(item.url)}">` +
+        `برای دانلود اینجا کلیک کنید` +
+        `</a></b>)` +
+        ` ${downloadNextEmoji}`
       );
     }
   }
 
 
   /* ==========================================================
-     دوبله
+     DUBBED
      ========================================================== */
 
-  if (dubbedLinks.length) {
+  if (
+    dubbedLinks.length
+  ) {
     lines.push("");
 
     lines.push(
@@ -760,16 +939,22 @@ export async function buildCaption(movie) {
     );
 
 
-    for (const item of dubbedLinks) {
+    for (
+      const item of dubbedLinks
+    ) {
       lines.push(
-        `⬇️(<b><a href="${esc(item.url)}">برای دانلود اینجا کلیک کنید</a></b>) ➡️`
+        `${downloadDownEmoji}` +
+        `(<b><a href="${esc(item.url)}">` +
+        `برای دانلود اینجا کلیک کنید` +
+        `</a></b>)` +
+        ` ${downloadNextEmoji}`
       );
     }
   }
 
 
   /* ==========================================================
-     کانال
+     CHANNEL
      ========================================================== */
 
   const channelId =
@@ -787,6 +972,10 @@ export async function buildCaption(movie) {
     );
   }
 
+
+  /*
+   * تمام خطوط
+   */
 
   return lines.join("\n");
 }
